@@ -48,8 +48,8 @@
         'digits': 9
     }];
 
-    const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbz5bBK7rCjvovEXg6WbbWoe3YwNf041QITDQOKendc-qNGu_pP1YkrSXklQNkKPcoGXXg/exec';
-    const FIREBASE_URL = 'https://notificacionlore-default-rtdb.firebaseio.com/alerta_activa.json'; 
+    const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbx2MmJpsF1jgwyhmH4AuYpOoRQKv4U6AEo9HQiDv7LxXx8TR3qNHFLczu1TyCMvCAsl/exec';
+    const FIREBASE_URL = 'https://notificacionalt0-default-rtdb.firebaseio.com/alerta_activa.json'; 
     const API_URL = CEREBRO_URL;
     
     let isExtensionAlive = true;
