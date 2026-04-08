@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "Credimax",
+  "version": "2.2",
+  "description": "Creado Por Tellez, solo para sistema credimax tiene que ser el usurio mis de la cuenta",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_icon": "icon.png"
+  },
+  "permissions": [
+    "notifications",
+    "storage",
+    "activeTab",
+    "clipboardRead",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "http://182.160.25.147/*",
+    "https://script.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["core_auth.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["panel_radar.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["visor_plantillas.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["auto_bot_mensajes.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["extractor_datos.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://182.160.25.147/asystem/BillingDetails/*"],
+      "js": ["osint_limpiador.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["auto_tipificacion.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://182.160.25.147/*"],
+      "js": ["redes_iconos.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
