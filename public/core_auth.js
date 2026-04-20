@@ -40,13 +40,21 @@
     // 🛡️ MÓDULO 2: AUTENTICACIÓN, FIREBASE Y ALERTAS GLOBALES 
     // =========================================================================
     
-    // 🔥 CONFIGURACIÓN ÚNICA Y GLOBAL: IP CHILE
-    const CONFIG_CRMS = [{
-        'prefix': '+56', 
-        'country': 'CHILE', 
-        'domains': ['http://182.160.25.147'], 
-        'digits': 9
-    }];
+    // 🔥 CONFIGURACIÓN ÚNICA Y GLOBAL: IP CHILE Y PERÚ
+    const CONFIG_CRMS = [
+        {
+            'prefix': '+56', 
+            'country': 'CHILE', 
+            'domains': ['http://182.160.25.147'], 
+            'digits': 9
+        },
+        {
+            'prefix': '+51', 
+            'country': 'PERÚ', 
+            'domains': ['http://182.160.29.4'], 
+            'digits': 9
+        }
+    ];
 
     const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbx2MmJpsF1jgwyhmH4AuYpOoRQKv4U6AEo9HQiDv7LxXx8TR3qNHFLczu1TyCMvCAsl/exec';
     const FIREBASE_URL = 'https://notificacionalt0-default-rtdb.firebaseio.com/alerta_activa.json'; 
