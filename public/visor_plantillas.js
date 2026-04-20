@@ -433,13 +433,15 @@
         if (variable === '{{producto}}') return prodFormateado.toLowerCase();
         if (variable === '{{Producto}}') return capitalizarPalabras(prodFormateado);
         
+        const prefijoPais = window.location.hostname === '182.160.29.4' ? '+51' : '+56';
+
         if (variable === '{{DEUDA TOTAL}}') return formatearMoneda(datosCliente.monto);
-        if (variable === '{{TELEFONO}}') return datosCliente.telCliente ? '+56' + datosCliente.telCliente : '';
+        if (variable === '{{TELEFONO}}') return datosCliente.telCliente ? prefijoPais + datosCliente.telCliente : '';
 
         if (variable === '{{CORREO}}') return datosCliente.correo || '';
         if (variable === '{{PRORROGA}}') return formatearMoneda(datosCliente.prorroga);
-        if (variable === '{{REF1}}') return datosCliente.ref1 ? '+56' + datosCliente.ref1 : '';
-        if (variable === '{{REF2}}') return datosCliente.ref2 ? '+56' + datosCliente.ref2 : '';
+        if (variable === '{{REF1}}') return datosCliente.ref1 ? prefijoPais + datosCliente.ref1 : '';
+        if (variable === '{{REF2}}') return datosCliente.ref2 ? prefijoPais + datosCliente.ref2 : '';
         if (variable === '{{MORA}}') return datosCliente.mora || '0';
         
         return null; 
