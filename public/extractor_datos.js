@@ -2,8 +2,8 @@
     'use strict';
 
     // 🔥 RESTRICCIÓN DE DOMINIO 🔥
-    if (!window.location.href.includes('182.160.25.147')) {
-        console.warn("Este script solo está autorizado para el dominio 182.160.25.147");
+    if (!window.location.href.includes('182.160.25.147') && !window.location.href.includes('182.160.29.4')) {
+        console.warn("Este script solo está autorizado para los dominios configurados.");
         return;
     }
 
@@ -103,7 +103,8 @@
         try {
             for (let tipo of tiposDeCaso) {
                 mostrarAviso(`Buscando bandeja ${tipo}...`, '#3b82f6', 'info');
-                let urlPuerta1 = `http://182.160.25.147:8093/api/case/colCaseList?pageNum=1&pageSize=5000&collection=1&caseType=${tipo}&orderStatus=2`;
+                let hostActual = window.location.hostname;
+                let urlPuerta1 = `http://${hostActual}:8093/api/case/colCaseList?pageNum=1&pageSize=5000&collection=1&caseType=${tipo}&orderStatus=2`;
                 let res = await fetch(urlPuerta1, { method: "GET", headers: headers });
                 let data = await res.json();
                 if (data.data && data.data.items) {
@@ -125,8 +126,9 @@
                 if (btnExtraer) btnExtraer.innerText = `⏳ Detalles ${Math.min(i + TAMANO_PAQUETE, todosLosClientes.length)}/${todosLosClientes.length}...`;
 
                 const promesasPaquete = paquete.map(async (cliente) => {
-                    let urlPuerta2 = `http://182.160.25.147:8093/api/case/details?userId=${cliente.userId}&acqChannel=${cliente.acqChannel}&caseNo=${cliente.caseNo}`;
-                    let urlPuerta3 = `http://182.160.25.147:8093/api/case/applyExtension/${cliente.caseNo}`;
+                    let hostActual = window.location.hostname;
+                    let urlPuerta2 = `http://${hostActual}:8093/api/case/details?userId=${cliente.userId}&acqChannel=${cliente.acqChannel}&caseNo=${cliente.caseNo}`;
+                    let urlPuerta3 = `http://${hostActual}:8093/api/case/applyExtension/${cliente.caseNo}`;
 
                     try {
                         let [resDetalle, resProrroga] = await Promise.all([
