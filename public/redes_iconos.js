@@ -46,7 +46,7 @@
     // =========================================================================
     'use strict';
 
-    const CODIGO_PAIS = '56'; // Código telefónico (56 = Chile)
+    const CODIGO_PAIS = window.location.hostname === '182.160.29.4' ? '51' : '56';
     const RUTA_OBJETIVO = '/collection/#/pages/case/detail?';
     
     const ICONO_SVG_TELEGRAM = `
