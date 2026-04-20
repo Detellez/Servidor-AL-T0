@@ -322,7 +322,7 @@
             const dropdown = await esperarElemento(() => {
                 const selectores = document.querySelectorAll('.uni-select__input-box');
                 for (let box of selectores) {
-                    if (box.innerText.includes('Por favor, seleccione')) return box;
+                    if (box.innerText.includes('Por favor, seleccione') || box.innerText.includes('Por favor selecciona')) return box;
                 }
                 return null;
             }, 3000);
