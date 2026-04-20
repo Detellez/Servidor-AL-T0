@@ -76,7 +76,7 @@
 `;
     document.head.appendChild(estilosCSS);
 
-    const CONFIG = { prefix: '56' };
+    const CONFIG = { prefix: window.location.hostname === '182.160.29.4' ? '51' : '56' };
 
     // =========================================================================
     // BLOQUE 3: Utilidades de Portapapeles (Fallback Legacy)
@@ -190,9 +190,9 @@
                     // Limpia el número: quita todo lo que no sea dígito
                     let numeroLimpio = textoCopiado.replace(/\D/g, '');
                     
-                    // Si empieza con 56, lo quita (para normalizarlo a estándar local)
-                    if (numeroLimpio.startsWith('56')) {
-                        numeroLimpio = numeroLimpio.substring(2);
+                    // Quita el prefijo del país automáticamente para normalizarlo
+                    if (numeroLimpio.startsWith(CONFIG.prefix)) {
+                        numeroLimpio = numeroLimpio.substring(CONFIG.prefix.length);
                     }
 
                     // Sobrescribe el portapapeles con el número ya limpio
