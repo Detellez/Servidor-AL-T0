@@ -100,8 +100,9 @@
 
     function buildPanel() {
         const urlActual = window.location.href;
-        const urlPermitida1 = 'http://182.160.25.147/collection/#/';
-        const urlPermitida2 = 'http://182.160.25.147/collection/#';
+        const origen = window.location.origin;
+        const urlPermitida1 = origen + '/collection/#/';
+        const urlPermitida2 = origen + '/collection/#';
 
         if (urlActual !== urlPermitida1 && urlActual !== urlPermitida2) {
             const existingPanel = document.querySelector('.addon-panel-independent');
