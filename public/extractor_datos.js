@@ -1,8 +1,21 @@
 (function() {
     'use strict';
 
-    // 🔥 RESTRICCIÓN DE DOMINIO 🔥
-    if (!window.location.href.includes('182.160.25.147') && !window.location.href.includes('182.160.29.4')) {
+    // 🔥 RESTRICCIÓN DE DOMINIO Y PREFIJO DINÁMICO 🔥
+    const dominiosConfig = {
+        '182.160.25.147': '56', // Chile
+        '182.160.29.4': '51'    // Perú
+    };
+    
+    let PREFIJO_ACTUAL = '';
+    for (const [ip, prefijo] of Object.entries(dominiosConfig)) {
+        if (window.location.href.includes(ip)) {
+            PREFIJO_ACTUAL = prefijo;
+            break;
+        }
+    }
+
+    if (!PREFIJO_ACTUAL) {
         console.warn("Este script solo está autorizado para los dominios configurados.");
         return;
     }
@@ -78,7 +91,17 @@
     // ==========================================
     async function iniciarExtraccionAPI() {
         const inputToken = document.getElementById('input-token-api');
-        if (!inputToken || !inputToken.value.trim()) return mostrarAviso('⚠️ Por favor, pega el Token primero', '#fbbf24', 'warning');
+        
+        // 🔥 LEER EL TOKEN VIVO DIRECTO DEL LOCAL STORAGE 🔥
+        let tokenVivo = localStorage.getItem('token');
+        if (tokenVivo) {
+            tokenVivo = tokenVivo.replace(/^"|"$/g, '').trim();
+            if (inputToken) inputToken.value = tokenVivo; // Actualiza el panel visualmente
+        }
+
+        if (!inputToken || !inputToken.value.trim()) {
+            return mostrarAviso('⚠️ No se detectó token en el sistema', '#fbbf24', 'warning');
+        }
         
         let token = inputToken.value.trim();
         if (!token.toLowerCase().startsWith('bearer ')) {
@@ -223,11 +246,8 @@
             });
 
             let tokenDetectado = localStorage.getItem('token') || "";
-            if (!tokenDetectado) {
-                let sessionToken = sessionStorage.getItem('Admin-Token-AC-AC');
-                if (sessionToken) {
-                    tokenDetectado = sessionToken.replace(/^"|"$/g, '').trim();
-                }
+            if (tokenDetectado) {
+                tokenDetectado = tokenDetectado.replace(/^"|"$/g, '').trim();
             }
             
             let clicsTitulo = 0;
@@ -385,7 +405,7 @@
                 const encabezadosVisibles = [
                     "ID Pedido", "ID Factura", "DNI", "SELF", "NUMERO", 
                     "NOMBRE", "APP", "CORREO", "PRODUCTO", "DEUDA TOTAL", "EXTENSION", 
-                    "CARGO POR MORA", "DIAS DE MORA", "Teléfono (Con 56)", "Ref 1 (Con 56)", "Ref 2 (Con 56)"
+                    "CARGO POR MORA", "DIAS DE MORA", `Teléfono (Con ${PREFIJO_ACTUAL})`, `Ref 1 (Con ${PREFIJO_ACTUAL})`, `Ref 2 (Con ${PREFIJO_ACTUAL})`
                 ];
 
                 const encabezadosExtra = ["WA", "TLG", "LLA", "REF.1", "REF.2", "SMS", "CP", "WA", "GO CHAT", "ESTADO ENVÍO" ];
@@ -413,17 +433,17 @@
                     let imgSelfTexto = (c.Foto_Selfie && c.Foto_Selfie !== 'Sin Foto' && c.Foto_Selfie !== '') 
                         ? `&lt;img src="${c.Foto_Selfie}" style="max-width:200px;border:1px solid #ccc;" /&gt;` : '-';
                     
-                    // 🔥 INTELIGENCIA PARA MANEJAR PREFIJO 56 🔥
-                    const formatSin56 = (num) => {
+                    // 🔥 INTELIGENCIA PARA MANEJAR PREFIJO DINÁMICO 🔥
+                    const formatSinPrefijo = (num) => {
                         if (!num || num === 'Sin registro' || num === '-') return num;
-                        let limpio = num.replace(/\D/g, ''); // Quita espacios o símbolos raros
-                        return limpio.startsWith('56') ? limpio.substring(2) : limpio;
+                        let limpio = num.replace(/\D/g, ''); 
+                        return limpio.startsWith(PREFIJO_ACTUAL) ? limpio.substring(PREFIJO_ACTUAL.length) : limpio;
                     };
                     
-                    const formatCon56 = (num) => {
+                    const formatConPrefijo = (num) => {
                         if (!num || num === 'Sin registro' || num === '-') return num;
-                        let limpio = num.replace(/\D/g, ''); // Quita espacios o símbolos raros
-                        return limpio.startsWith('56') ? limpio : '56' + limpio;
+                        let limpio = num.replace(/\D/g, ''); 
+                        return limpio.startsWith(PREFIJO_ACTUAL) ? limpio : PREFIJO_ACTUAL + limpio;
                     };
 
                     // Aplicamos el nuevo orden exacto de datos solicitado
@@ -432,7 +452,7 @@
                         c.ID_Factura || '-', 
                         imgDniTexto, 
                         imgSelfTexto, 
-                        formatSin56(c.Telefono_Titular), // Teléfono SIN 56
+                        formatSinPrefijo(c.Telefono_Titular), // Teléfono SIN prefijo
                         c.Nombre_Completo || '-', 
                         c.Aplicacion || '-',
                         c.Correo || '-', 
@@ -441,9 +461,9 @@
                         c.Monto_Prorroga || '-',
                         c.Interes_Mora || '-', 
                         c.Dias_Mora || '-',
-                        formatCon56(c.Telefono_Titular), // Teléfono CON 56
-                        formatCon56(c.Ref1_Telefono),    // Ref 1 CON 56
-                        formatCon56(c.Ref2_Telefono)     // Ref 2 CON 56
+                        formatConPrefijo(c.Telefono_Titular), // Teléfono CON prefijo
+                        formatConPrefijo(c.Ref1_Telefono),    // Ref 1 CON prefijo
+                        formatConPrefijo(c.Ref2_Telefono)     // Ref 2 CON prefijo
                     ];
 
                     valoresFila.forEach((val, index) => {
