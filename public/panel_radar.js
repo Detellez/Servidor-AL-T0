@@ -39,7 +39,6 @@
             this.extraerToken();
             this.inyectarCSS();
             this.crearEstructura();
-            // Ya no creamos el botón flotante aquí, se abre desde el Panel Radar
         },
 
         extraerToken: function() {
@@ -96,11 +95,9 @@
                 .term-val-orange { color: #f59e0b; } .term-val-red { color: #ef4444; } 
                 
                 /* Console Log */
-                .term-log { height: 120px; background: #000; border: 1px solid #1f2937; padding: 10px; font-size: 11px; overflow-y: auto; border-radius: 4px; }
-                .term-log-line { margin-bottom: 3px; }
-                .term-log-time { color: #6b7280; margin-right: 8px; }
-                .term-log-msg { color: #0f0; }
-                .term-log-err { color: #ef4444; }
+                .term-log { height: 200px; resize: vertical; background: #000; border: 1px solid #1f2937; padding: 10px; font-size: 13px; overflow-y: auto; border-radius: 4px; line-height: 1.4; }
+                .term-log-line { margin-bottom: 4px; }
+                .term-log-time { color: #6b7280; margin-right: 8px; font-size: 12px; }
                 .term-check { accent-color: #0f0; width: 14px; height: 14px; cursor: pointer;}
                 
                 /* Modales Terminal */
@@ -165,6 +162,11 @@
                                     </select>
                                 </div>
                                 <div style="flex:1"></div>
+                                
+                                <button class="term-btn" id="term-btn-sms-masivo" style="border-color:#a855f7; color:#a855f7;" title="Enviar SMS a seleccionados">
+                                    [> SMS MASIVO <span class="lbl-count-sel">(0)</span> ]
+                                </button>
+                                
                                 <button class="term-btn" id="term-btn-clic-titular" style="border-color:#0ea5e9; color:#0ea5e9;" title="Simula copiar Teléfono Titular">
                                     [> CLIC TITULAR <span class="lbl-count-sel">(0)</span> ]
                                 </button>
@@ -228,9 +230,9 @@
 
                         <div class="term-sidebar">
                             <div class="term-panel" style="border-color:#10b981;">
-                                <div class="term-panel-title" style="color:#10b981; border-color:#10b981;">FILTRO POR IDs</div>
+                                <div class="term-panel-title" style="color:#10b981; border-color:#10b981;">FILTRO INTELIGENTE (IDs o TEL)</div>
                                 <div style="padding: 10px;">
-                                    <textarea id="term-filtro-ids" class="term-textarea" style="width: 100%; min-height: 80px; overflow: hidden; resize: none; box-sizing: border-box; word-break: break-all; line-height: 1.5; transition: height 0.1s ease-out;" placeholder="Pega varios IDs juntos (ej: 1507420...1507234...)"></textarea>
+                                    <textarea id="term-filtro-ids" class="term-textarea" style="width: 100%; min-height: 80px; overflow: hidden; resize: none; box-sizing: border-box; word-break: break-all; line-height: 1.5; transition: height 0.1s ease-out;" placeholder="Pega IDs o Teléfonos (ej: 150742... o 987654...)"></textarea>
                                     <div style="font-size:9px; color:#64748b; margin-top:5px; text-align:center;">Se filtrará en tiempo real</div>
                                 </div>
                             </div>
@@ -284,6 +286,13 @@
                 e.target.style.height = 'auto'; 
                 e.target.style.height = (e.target.scrollHeight) + 'px';
                 this.renderizar();
+            });
+
+            // 🔥 NUEVO: Listener para el botón de SMS Masivo
+            document.getElementById('term-btn-sms-masivo').addEventListener('click', () => {
+                let cant = document.querySelectorAll('.term-check-row:checked').length;
+                if(cant === 0) return alert("Selecciona al menos un cliente en la tabla.");
+                this.pedirConfirmacion(`¿Enviar SMS Masivo a <span style="color:#a855f7">${cant}</span> clientes seleccionados?`, () => this.iniciarSmsMasivo());
             });
 
             // Listeners Confirmaciones
@@ -351,11 +360,30 @@
             nuevoBtnAceptar.addEventListener('click', () => { cerrarModal(); onAceptarCallback(); });
         },
 
-        log: function(msg, isError = false) {
+        log: function(msg, type = 'info') {
             const consola = document.getElementById('term-console');
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-            const cls = isError ? 'term-log-err' : 'term-log-msg';
-            consola.innerHTML += `<div class="term-log-line"><span class="term-log-time">[${time}]</span><span class="${cls}">${msg}</span></div>`;
+            
+            if (type === 'divider') {
+                consola.innerHTML += `<div style="border-bottom: 1px dashed #374151; margin: 8px 0;"></div>`;
+                consola.scrollTop = consola.scrollHeight;
+                return;
+            }
+
+            // Colores sincronizados con los botones
+            let colorMsg = '#d1d5db'; // Gris clarito por defecto
+            if (type === 'titular') colorMsg = '#3b82f6';         // Azul (Mensaje Titular)
+            else if (type === 'ref1') colorMsg = '#10b981';       // Verde (Mensaje Ref 1)
+            else if (type === 'ref2') colorMsg = '#f59e0b';       // Naranja (Mensaje Ref 2)
+            else if (type === 'clic-titular') colorMsg = '#0ea5e9';// Azul Celeste (Clic Titular)
+            else if (type === 'clic-refs') colorMsg = '#f59e0b';  // Naranja (Clic Refs)
+            else if (type === 'sms') colorMsg = '#a855f7';        // Morado (SMS Masivo)
+            else if (type === 'success') colorMsg = '#00ff00';    // Verde Fosforescente (Finalizado)
+            else if (type === 'error') colorMsg = '#ff003c';      // Rojo Fosforescente (Errores)
+            else if (type === 'warning') colorMsg = '#ffcc00';    // Amarillo Brillante (Advertencias/Saltos)
+            else if (type === 'system') colorMsg = '#60a5fa';     // Azul claro (Sistema)
+
+            consola.innerHTML += `<div class="term-log-line"><span class="term-log-time">[${time}]</span><span style="color: ${colorMsg};">${msg}</span></div>`;
             consola.scrollTop = consola.scrollHeight;
         },
 
@@ -432,7 +460,8 @@
 
             let idsFiltrar = [];
             if (filtroIdsRaw.trim() !== '') {
-                let matches = filtroIdsRaw.match(/\d{15,20}/g);
+                // 🔥 Modificado: Ahora atrapa secuencias de 8 a más dígitos (Detecta tanto IDs largos como Teléfonos cortos)
+                let matches = filtroIdsRaw.match(/\d{8,}/g);
                 if (matches) idsFiltrar = matches;
             }
 
@@ -450,7 +479,10 @@
                 
                 let pasaIds = true;
                 if (idsFiltrar.length > 0) {
-                    pasaIds = idsFiltrar.includes(String(c.loanId)) || idsFiltrar.includes(String(c.caseNo));
+                    // 🔥 Modificado: Comprueba si lo que pegaste coincide con el ID del préstamo, el Caso, o el TELÉFONO
+                    pasaIds = idsFiltrar.includes(String(c.loanId)) || 
+                              idsFiltrar.includes(String(c.caseNo)) || 
+                              idsFiltrar.includes(String(c.phoneNumber));
                 }
 
                 return pasaBandeja && pasaDuplicidad && pasaMora && pasaIds;
@@ -469,6 +501,8 @@
             let tbody = document.getElementById('term-tbody');
             tbody.innerHTML = '';
             
+            document.getElementById('term-check-all').checked = false;
+            
             const coloresApp = ["#f59e0b", "#10b981", "#3b82f6", "#c084fc", "#ef4444", "#06b6d4", "#f43f5e", "#8b5cf6", "#84cc16", "#eab308"];
 
             this.clientesFiltrados.forEach((c, idx) => {
@@ -482,7 +516,7 @@
 
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><input type="checkbox" class="term-check term-check-row" data-idx="${idx}" checked></td>
+                    <td><input type="checkbox" class="term-check term-check-row" data-idx="${idx}"></td>
                     <td style="color:#60a5fa">${c.loanId || c.caseNo}</td>
                     <td>${c.userName} ${c._esDuplicado ? '<span style="color:#ef4444; font-size:10px; font-weight:bold;">[Multi]</span>' : ''}</td>
                     <td>${c.phoneNumber}</td>
@@ -589,13 +623,70 @@
             }
         },
 
+        // 🔥 NUEVO: Función para enviar el SMS Masivo a los seleccionados en la tabla
+        iniciarSmsMasivo: async function() {
+            let seleccionadosIdx = Array.from(document.querySelectorAll('.term-check-row:checked')).map(cb => cb.getAttribute('data-idx'));
+            const headers = this.getHeaders();
+            let exitosos = 0, fallidos = 0, al_limite = 0;
+
+            this.log(`🚀 INICIANDO ENVÍO SMS A ${seleccionadosIdx.length} CLIENTES...`, 'sms');
+
+            for (let idx of seleccionadosIdx) {
+                let c = this.clientesFiltrados[idx];
+                
+                if (!c.phoneNumber) {
+                    this.log(`⏭️ [${c.userName || 'Cliente'}] Saltado (Sin teléfono)`, 'warning');
+                    fallidos++;
+                    continue;
+                }
+
+                try {
+                    let previewRes = await fetch(`http://${this.host}:8093/api/sms/smsPreview`, {
+                        method: "POST", headers: headers, body: JSON.stringify({ phone: c.phoneNumber, repaymentType: 1, repaymentAmount: c.repaymentAmount || 0, caseNo: c.caseNo, acqChannel: c.acqChannel || "PEFL" })
+                    });
+                    let previewData = await previewRes.json();
+                    let smsContent = null;
+                    
+                    if (typeof previewData.data === 'string') { smsContent = previewData.data; }
+                    else if (previewData.data && previewData.data.content) { smsContent = previewData.data.content; }
+                    else if (previewData.content) { smsContent = previewData.content; }
+
+                    if (!smsContent) { 
+                        this.log(`⚠️ [${c.userName}] Error al generar texto.`, 'error');
+                        fallidos++; continue; 
+                    }
+
+                    let sendRes = await fetch(`http://${this.host}:8093/api/sms/sendSms`, {
+                        method: "POST", headers: headers, body: JSON.stringify({ phone: c.phoneNumber, repaymentAmount: c.repaymentAmount || 0, caseNo: c.caseNo, acqChannel: c.acqChannel || "PEFL", content: smsContent })
+                    });
+                    let sendData = await sendRes.json();
+                    
+                    if (sendRes.ok && (sendData.code === 200 || sendData.code === 0)) {
+                        this.log(`✔️ [${c.userName}] SMS Enviado.`, 'sms'); exitosos++;
+                    } else {
+                        let msgError = sendData.msg || "";
+                        if (msgError.toLowerCase().includes("máximo") || msgError.toLowerCase().includes("maximo")) {
+                            this.log(`🛑 [${c.userName}] Límite SMS alcanzado.`, 'warning'); al_limite++;
+                        } else {
+                            this.log(`❌ [${c.userName}] Error: ${msgError}`, 'error'); fallidos++;
+                        }
+                    }
+                    await new Promise(r => setTimeout(r, 500));
+                } catch (error) {
+                    this.log(`❌ [${c.userName}] Error crítico en envío.`, 'error'); fallidos++;
+                }
+            }
+            this.log(`✅ SMS MASIVO FINALIZADO. Éxito: ${exitosos} | Límite: ${al_limite} | Error: ${fallidos}`, 'success');
+            this.log('', 'divider');
+        },
+
         iniciarClicsTitular: async function() {
             let seleccionadosIdx = Array.from(document.querySelectorAll('.term-check-row:checked')).map(cb => cb.getAttribute('data-idx'));
             const urlPost = `http://${this.host}:8093/api/event/click/record`;
             const headers = this.getHeaders();
             let totalExito = 0, totalError = 0;
 
-            this.log(`📱 SIMULANDO CLIC TITULAR PARA ${seleccionadosIdx.length} CLIENTES...`);
+            this.log(`📱 SIMULANDO CLIC TITULAR PARA ${seleccionadosIdx.length} CLIENTES...`, 'clic-titular');
 
             for (let idx of seleccionadosIdx) {
                 let c = this.clientesFiltrados[idx];
@@ -613,11 +704,12 @@
 
                 try {
                     let r1 = await fetch(urlPost, { method: "POST", mode: "cors", credentials: "include", headers: headers, body: JSON.stringify(payloadTitular) });
-                    if(r1.ok) { totalExito++; this.log(`✔️ [${c.userName}] Clic Titular inyectado`); } else { totalError++; }
-                } catch (error) { totalError++; this.log(`❌ [${c.userName}] Error clic titular.`, true); }
+                    if(r1.ok) { totalExito++; this.log(`✔️ [${c.userName}] Clic Titular inyectado`, 'clic-titular'); } else { totalError++; }
+                } catch (error) { totalError++; this.log(`❌ [${c.userName}] Error clic titular.`, 'error'); }
                 await new Promise(r => setTimeout(r, 200)); 
             }
-            this.log(`✅ CLIC TITULAR FINALIZADO. Exitosas: ${totalExito} | Fallidas: ${totalError}`);
+            this.log(`✅ CLIC TITULAR FINALIZADO. Exitosas: ${totalExito} | Fallidas: ${totalError}`, 'success');
+            this.log('', 'divider');
         },
 
         iniciarClicsReferencias: async function() {
@@ -626,7 +718,7 @@
             const headers = this.getHeaders();
             let totalExito = 0, totalError = 0;
 
-            this.log(`📱 SIMULANDO CLICS A REFERENCIAS PARA ${seleccionadosIdx.length} CLIENTES...`);
+            this.log(`📱 SIMULANDO CLICS A REFERENCIAS PARA ${seleccionadosIdx.length} CLIENTES...`, 'clic-refs');
 
             for (let idx of seleccionadosIdx) {
                 let c = this.clientesFiltrados[idx];
@@ -648,11 +740,12 @@
                     await new Promise(r => setTimeout(r, 200));
 
                     let r2 = await fetch(urlPost, fetchOptions);
-                    if(r2.ok) { totalExito++; this.log(`✔️ [${c.userName}] Doble Clic a Referencias inyectado`); } else { totalError++; }
-                } catch (error) { totalError += 2; this.log(`❌ [${c.userName}] Error clics referencias.`, true); }
+                    if(r2.ok) { totalExito++; this.log(`✔️ [${c.userName}] Doble Clic a Referencias inyectado`, 'clic-refs'); } else { totalError++; }
+                } catch (error) { totalError += 2; this.log(`❌ [${c.userName}] Error clics referencias.`, 'error'); }
                 await new Promise(r => setTimeout(r, 300)); 
             }
-            this.log(`✅ CLICS REFERENCIAS FINALIZADO. Exitosas: ${totalExito} | Fallidas: ${totalError}`);
+            this.log(`✅ CLICS REFERENCIAS FINALIZADO. Exitosas: ${totalExito} | Fallidas: ${totalError}`, 'success');
+            this.log('', 'divider');
         },
 
         iniciarSeguimientoEspecifico: async function(destinoId, inputId, nombreDestino) {
@@ -662,7 +755,13 @@
             const headers = this.getHeaders();
             let totalEnviados = 0, totalSaltados = 0;
 
-            this.log(`🚀 INICIANDO SEGUIMIENTOS A ${seleccionadosIdx.length} CLIENTES... Destino: ${nombreDestino}`);
+            // Define el color dependiendo de qué botón de mensaje se tocó
+            let logType = 'info';
+            if (destinoId === '1') logType = 'titular';
+            else if (destinoId === '2') logType = 'ref1';
+            else if (destinoId === '3') logType = 'ref2';
+
+            this.log(`🚀 INICIANDO SEGUIMIENTOS A ${seleccionadosIdx.length} CLIENTES... Destino: ${nombreDestino}`, logType);
 
             for (let idx of seleccionadosIdx) {
                 let c = this.clientesFiltrados[idx];
@@ -674,7 +773,7 @@
                 } catch(e) {}
 
                 if (histText.includes(mensajeFinal) && histText.includes(fechaHoy) && (histText.includes(`"contactPerson":"${destinoId}"`) || histText.includes(`"contactPerson":${destinoId}`))) {
-                    this.log(`⏭️ [${c.userName} - ${nombreDestino}] Saltado (Ya existe hoy)`);
+                    this.log(`⏭️ [${c.userName} - ${nombreDestino}] Saltado (Ya existe hoy)`, 'warning');
                     totalSaltados++;
                     continue;
                 }
@@ -683,11 +782,12 @@
                 
                 try {
                     let resP = await fetch(`http://${this.host}:8093/api/case/editColRecord`, { method: "POST", headers: headers, body: JSON.stringify(payload) });
-                    if(resP.ok) { this.log(`✔️ [${c.userName} - ${nombreDestino}] Mensaje: "${mensajeFinal}" inyectado.`); totalEnviados++; }
-                } catch(e) { this.log(`❌ [${c.userName}] Error de red.`, true); }
+                    if(resP.ok) { this.log(`✔️ [${c.userName} - ${nombreDestino}] Mensaje: "${mensajeFinal}" inyectado.`, logType); totalEnviados++; }
+                } catch(e) { this.log(`❌ [${c.userName}] Error de red.`, 'error'); }
                 await new Promise(r => setTimeout(r, 250)); 
             }
-            this.log(`✅ RÁFAGA FINALIZADA (${nombreDestino}). Enviados: ${totalEnviados} | Evitados: ${totalSaltados}`);
+            this.log(`✅ RÁFAGA FINALIZADA (${nombreDestino}). Enviados: ${totalEnviados} | Evitados: ${totalSaltados}`, 'success');
+            this.log('', 'divider');
         }
     };
 
