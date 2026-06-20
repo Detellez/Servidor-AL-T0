@@ -20,6 +20,9 @@
         return;
     }
 
+    // Variable global del IIFE para almacenar el lote de números a filtrar
+    let numerosFiltrados = null;
+
     // --- ESTILOS CSS GLOBALES ---
     const inyectarEstilos = () => {
         if (document.getElementById('estilos-rafaga')) return;
@@ -370,8 +373,10 @@
                 <div style="display:flex; gap:10px;">
                     <button type="button" id="btn-limpiar-lote" class="btn-rafaga btn-red">🗑️ Limpiar</button>
                     <button type="button" id="btn-extraer-todo" class="btn-rafaga btn-green">⚡ Extraer Todo ⚡</button>
+                    <button type="button" id="btn-filtrar-pantalla" class="btn-rafaga" style="background:#8b5cf6; color:white;">🔍 Filtrar</button>
                 </div>
                 <div style="display:flex; gap:10px;">
+                    <button type="button" id="btn-descargar-csv" class="btn-rafaga" style="background:#f59e0b; color:white;">📥 Descargar CSV</button>
                     <button type="button" id="btn-copiar-lote" class="btn-rafaga btn-blue">📋 Copiar a Excel</button>
                 </div>
             `;
@@ -388,9 +393,125 @@
 
             document.getElementById('btn-extraer-todo').onclick = iniciarExtraccionAPI;
 
+            // 🔥 MOTOR INTERACTIVO DEL BOTÓN FILTRAR POR LOTES DE TELÉFONOS 🔥
+            document.getElementById('btn-filtrar-pantalla').onclick = async (e) => {
+                e.stopPropagation();
+                
+                const dialogPromptFiltrar = () => {
+                    return new Promise((resolve) => {
+                        const overlay = document.createElement('div');
+                        Object.assign(overlay.style, {
+                            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+                            backgroundColor: 'rgba(15, 23, 42, 0.85)', zIndex: '2147483646',
+                            display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(5px)',
+                            fontFamily: 'system-ui, -apple-system, sans-serif'
+                        });
+                        blindarElemento(overlay);
+
+                        const modal = document.createElement('div');
+                        Object.assign(modal.style, {
+                            background: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #8b5cf6',
+                            width: '380px', color: 'white', boxShadow: '0 15px 40px rgba(0,0,0,0.6)'
+                        });
+
+                        modal.innerHTML = `
+                            <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 16px; font-weight: bold; text-align: center;">🔍 Filtrar por Lista de Teléfonos</h3>
+                            <p style="margin: 0 0 12px 0; font-size: 12px; color: #94a3b8; text-align: center;">Pega los números de tus clientes (uno por línea o separados por comas):</p>
+                            <textarea id="txt-numeros-filtrar" placeholder="Ejemplo:\\n912345678\\n56987654321" style="width: 100%; height: 160px; background: #0f172a; color: #34d399; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+                            <div style="display: flex; justify-content: space-between; gap: 10px; margin-top: 15px;">
+                                <button id="btn-modal-clean-filter" style="background: #ef4444; border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">Quitar Filtro</button>
+                                <div style="display: flex; gap: 10px;">
+                                    <button id="btn-modal-cancel-filter" style="background: transparent; border: 1px solid #64748b; color: #cbd5e1; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">Cancelar</button>
+                                    <button id="btn-modal-confirm-filter" style="background: #34d399; border: none; color: black; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">Filtrar</button>
+                                </div>
+                            </div>
+                        `;
+
+                        overlay.appendChild(modal);
+                        document.body.appendChild(overlay);
+
+                        modal.querySelector('#btn-modal-cancel-filter').onclick = () => { overlay.remove(); resolve(null); };
+                        modal.querySelector('#btn-modal-clean-filter').onclick = () => { overlay.remove(); resolve([]); };
+                        modal.querySelector('#btn-modal-confirm-filter').onclick = () => {
+                            const val = modal.querySelector('#txt-numeros-filtrar').value;
+                            overlay.remove();
+                            resolve(val);
+                        };
+                    });
+                };
+
+                const resultado = await dialogPromptFiltrar();
+                if (resultado === null) return; 
+
+                if (Array.isArray(resultado) && resultado.length === 0) {
+                    numerosFiltrados = null;
+                    mostrarAviso('Filtro removido. Mostrando todo.', '#3b82f6', 'info', 2500);
+                } else {
+                    let lineas = resultado.split(/[\n,]/);
+                    let numsLimpios = lineas.map(l => l.replace(/\D/g, '').trim()).filter(l => l.length > 0);
+                    
+                    if (numsLimpios.length === 0) {
+                        numerosFiltrados = null;
+                        mostrarAviso('No se ingresaron números válidos.', '#fbbf24', 'warning', 2500);
+                    } else {
+                        numerosFiltrados = numsLimpios;
+                        mostrarAviso(`✅ Filtrando: ${numsLimpios.length} números aplicados.`, '#34d399', 'success', 3000);
+                    }
+                }
+                actualizarTablaLotes();
+            };
+
+            // 🔥 DESCARGA CSV (FORMATO EXACTO CON PREFIJO DINÁMICO SIN EL SÍMBOLO +) 🔥
+            document.getElementById('btn-descargar-csv').onclick = (e) => {
+                e.stopPropagation();
+                let lote = obtenerLoteDatos();
+                if (lote.length === 0) return mostrarAviso('No hay datos', '#fbbf24', 'warning');
+                
+                // Formateador estricto: asegura el prefijo numérico del país activo sin el '+' ni caracteres extraños
+                const formatCSVTelefono = (num) => {
+                    if (!num || num === 'Sin registro' || num === '-') return '';
+                    let limpio = String(num).replace(/\D/g, ''); // Filtra y deja solo dígitos puros
+                    if (!limpio) return '';
+                    // Si ya inicia con el prefijo asignado por IP, lo deja intacto; de lo contrario, lo antepone
+                    return limpio.startsWith(PREFIJO_ACTUAL) ? limpio : PREFIJO_ACTUAL + limpio;
+                };
+
+                // Cabecera exacta solicitada
+                let csvContent = "\uFEFFID PLAN,NOMBRE,APP,PRODUCTO,DEUDA TOTAL,PRORROGA,DIAS MORA,CARGO POR MORA,MONTO CONTRATO,NUMERO,REFERENCIA 1,REFERENCIA 2\n"; 
+                
+                lote.forEach(c => {
+                    let idPlan = c.ID_Pedido || '';
+                    
+                    // Limpieza destructiva para asegurar la integridad de las columnas en el CSV plano
+                    let nom = c.Nombre_Completo ? c.Nombre_Completo.trim().replace(/["',]/g, ' ') : '';
+                    let app = c.Aplicacion ? c.Aplicacion.replace(/["',]/g, ' ') : '';
+                    let producto = c.Producto ? c.Producto.replace(/["',]/g, ' ') : '';
+                    
+                    let monto = c.Deuda_Total || '0';
+                    let reinv = c.Monto_Prorroga || '0';
+                    let diasMora = c.Dias_Mora || '0';
+                    let cargoMora = c.Interes_Mora || '0';
+                    let montoPago = '0'; 
+                    
+                    // Inyección de teléfonos con prefijo limpio directo para el discador masivo
+                    let tel = formatCSVTelefono(c.Telefono_Titular); 
+                    let r1 = formatCSVTelefono(c.Ref1_Telefono);
+                    let r2 = formatCSVTelefono(c.Ref2_Telefono);
+
+                    csvContent += `${idPlan},${nom},${app},${producto},${monto},${reinv},${diasMora},${cargoMora},${montoPago},${tel},${r1},${r2}\n`;
+                });
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url;
+                a.download = `Cartera_${PREFIJO_ACTUAL}_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                mostrarAviso('CSV descargado 📥', '#f59e0b', 'success');
+            };
+
             // 🔥 COPIADO PARA GOOGLE SHEETS (CON ESTILOS, ALINEACIÓN Y AJUSTE DE TEXTO) 🔥
             document.getElementById('btn-copiar-lote').onclick = () => {
-                let lote = JSON.parse(localStorage.getItem('LOTE_RAFAGA') || '[]');
+                let lote = obtenerLoteDatos();
                 if (lote.length === 0) return mostrarAviso('No hay datos para copiar', '#fbbf24', 'warning');
 
                 const fechaHoy = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -517,11 +638,25 @@
         actualizarTablaLotes();
     };
 
+    // Filtra el lote de datos reactivamente según la lista de números pegada por el usuario
+    const obtenerLoteDatos = () => {
+        let lote = JSON.parse(localStorage.getItem('LOTE_RAFAGA') || '[]');
+        if (numerosFiltrados && numerosFiltrados.length > 0) {
+            return lote.filter(c => {
+                if (!c.Telefono_Titular) return false;
+                let telLimpio = String(c.Telefono_Titular).replace(/\D/g, '');
+                // Coincidencia inteligente bidireccional (con/sin prefijo país activo)
+                return numerosFiltrados.some(num => telLimpio.endsWith(num) || num.endsWith(telLimpio));
+            });
+        }
+        return lote;
+    };
+
     const actualizarTablaLotes = () => {
         const container = document.getElementById('tabla-container-rafaga');
         if (!container) return;
 
-        let lote = JSON.parse(localStorage.getItem('LOTE_RAFAGA') || '[]');
+        let lote = obtenerLoteDatos();
 
         const btnCopy = document.getElementById('btn-copiar-lote');
         if(btnCopy) {
