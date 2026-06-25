@@ -110,6 +110,26 @@
         if (!token.toLowerCase().startsWith('bearer ')) {
             token = "Bearer " + token;
         }
+            }
+        }
+
+        // Si todos estaban vencidos, intenta rescatar el que está escrito manualmente en el panel
+        if (!tokenValido && inputToken && inputToken.value.trim().length > 20) {
+            tokenValido = inputToken.value.trim();
+        }
+
+        if (tokenValido && inputToken) {
+            inputToken.value = tokenValido; // Actualiza el panel visualmente
+        }
+
+        if (!tokenValido) {
+            return mostrarAviso('⚠️ Todos los tokens detectados están expirados.', '#fbbf24', 'warning');
+        }
+        
+        let token = tokenValido;
+        if (!token.toLowerCase().startsWith('bearer ')) {
+            token = "Bearer " + token;
+        }
 
         const btnExtraer = document.getElementById('btn-extraer-todo');
         if (btnExtraer) { btnExtraer.disabled = true; btnExtraer.innerText = '⏳ Extrayendo...'; }
@@ -373,10 +393,12 @@
                 <div style="display:flex; gap:10px;">
                     <button type="button" id="btn-limpiar-lote" class="btn-rafaga btn-red">🗑️ Limpiar</button>
                     <button type="button" id="btn-extraer-todo" class="btn-rafaga btn-green">⚡ Extraer Todo ⚡</button>
-                    <button type="button" id="btn-filtrar-pantalla" class="btn-rafaga" style="background:#8b5cf6; color:white;">🔍 Filtrar</button>
+                    <button type="button" id="btn-filtrar-pantalla" class="btn-rafaga" style="background:#8b5cf6; color:white;">🔍 Filtrar</button>  
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <button type="button" id="btn-descargar-csv" class="btn-rafaga" style="background:#f59e0b; color:white;">📥 Descargar CSV</button>
+                    <button type="button" id="btn-descargar-csv" class="btn-rafaga" style="background: #166534; color: white; transition: all 0.3s;" title="Copiar Contactos" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 0 12px #166534, 0 0 20px #166534';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
                     <button type="button" id="btn-copiar-lote" class="btn-rafaga btn-blue">📋 Copiar a Excel</button>
                 </div>
             `;
@@ -461,8 +483,8 @@
                 actualizarTablaLotes();
             };
 
-            // 🔥 DESCARGA CSV (FORMATO EXACTO CON PREFIJO DINÁMICO SIN EL SÍMBOLO +) 🔥
-            document.getElementById('btn-descargar-csv').onclick = (e) => {
+            // 🔥 COPIAR CSV AL PORTAPAPELES (FORMATO EXACTO CON PREFIJO DINÁMICO SIN EL SÍMBOLO +) 🔥
+            document.getElementById('btn-descargar-csv').onclick = async (e) => {
                 e.stopPropagation();
                 let lote = obtenerLoteDatos();
                 if (lote.length === 0) return mostrarAviso('No hay datos', '#fbbf24', 'warning');
@@ -476,8 +498,8 @@
                     return limpio.startsWith(PREFIJO_ACTUAL) ? limpio : PREFIJO_ACTUAL + limpio;
                 };
 
-                // Cabecera exacta solicitada
-                let csvContent = "\uFEFFID PLAN,NOMBRE,APP,PRODUCTO,DEUDA TOTAL,PRORROGA,DIAS MORA,CARGO POR MORA,MONTO CONTRATO,NUMERO,REFERENCIA 1,REFERENCIA 2\n"; 
+                // Cabecera exacta solicitada (sin BOM para copiado limpio)
+                let csvContent = "ID PLAN,NOMBRE,APP,PRODUCTO,DEUDA TOTAL,PRORROGA,DIAS MORA,CARGO POR MORA,MONTO CONTRATO,NUMERO,REFERENCIA 1,REFERENCIA 2\n"; 
                 
                 lote.forEach(c => {
                     let idPlan = c.ID_Pedido || '';
@@ -501,12 +523,26 @@
                     csvContent += `${idPlan},${nom},${app},${producto},${monto},${reinv},${diasMora},${cargoMora},${montoPago},${tel},${r1},${r2}\n`;
                 });
                 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url;
-                a.download = `Cartera_${PREFIJO_ACTUAL}_${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-                mostrarAviso('CSV descargado 📥', '#f59e0b', 'success');
+                try {
+                    await navigator.clipboard.writeText(csvContent);
+                    mostrarAviso('CSV copiado al portapapeles 📋', '#f59e0b', 'success', 3000);
+                } catch (err) {
+                    console.error('Error usando Clipboard API, intentando fallback:', err);
+                    // Fallback clásico para navegadores restringidos
+                    const textArea = document.createElement("textarea");
+                    textArea.value = csvContent;
+                    Object.assign(textArea.style, { position: 'fixed', left: '-9999px', top: '0' });
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        mostrarAviso('CSV copiado al portapapeles 📋', '#f59e0b', 'success', 3000);
+                    } catch (ex) {
+                        mostrarAviso('Error al copiar CSV. Intenta de nuevo.', '#ef4444', 'error');
+                    }
+                    document.body.removeChild(textArea);
+                }
             };
 
             // 🔥 COPIADO PARA GOOGLE SHEETS (CON ESTILOS, ALINEACIÓN Y AJUSTE DE TEXTO) 🔥
