@@ -110,26 +110,6 @@
         if (!token.toLowerCase().startsWith('bearer ')) {
             token = "Bearer " + token;
         }
-            }
-        }
-
-        // Si todos estaban vencidos, intenta rescatar el que está escrito manualmente en el panel
-        if (!tokenValido && inputToken && inputToken.value.trim().length > 20) {
-            tokenValido = inputToken.value.trim();
-        }
-
-        if (tokenValido && inputToken) {
-            inputToken.value = tokenValido; // Actualiza el panel visualmente
-        }
-
-        if (!tokenValido) {
-            return mostrarAviso('⚠️ Todos los tokens detectados están expirados.', '#fbbf24', 'warning');
-        }
-        
-        let token = tokenValido;
-        if (!token.toLowerCase().startsWith('bearer ')) {
-            token = "Bearer " + token;
-        }
 
         const btnExtraer = document.getElementById('btn-extraer-todo');
         if (btnExtraer) { btnExtraer.disabled = true; btnExtraer.innerText = '⏳ Extrayendo...'; }
