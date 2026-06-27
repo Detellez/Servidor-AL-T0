@@ -6,7 +6,7 @@
     // ==========================================
     
     // --- CONFIGURACIÓN RADAR ---
-    const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbwRBmQk-FtHmzJAT4_VXNRO8Zh7g11jGjoYBYTCXf-S9zKIy8N3pn4cyJ5l5m6uBA/exec';
+    const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbx2MmJpsF1jgwyhmH4AuYpOoRQKv4U6AEo9HQiDv7LxXx8TR3qNHFLczu1TyCMvCAsl/exec';
     const API_URL = CEREBRO_URL;
     const SECURITY_TOKEN = 'SST_V12_CORP_SECURE_2026_X9';
 
