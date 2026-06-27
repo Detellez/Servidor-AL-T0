@@ -89,17 +89,48 @@
         });
     };
 
+    // 🔥 CAZADOR DE TOKENS DEFINITIVO (INTELIGENTE POR URL) 🔥
+    const cazarToken = () => {
+        let esAdmin = window.location.href.includes('/asystem/');
+        
+        // 1. Priorizamos la llave exacta dependiendo de la página en la que estamos
+        if (esAdmin) {
+            let kAdmin = sessionStorage.getItem('Admin-Token-AC-AC') || "";
+            kAdmin = kAdmin.replace(/^"|"$/g, '').trim();
+            if (kAdmin.startsWith('eyJ') && kAdmin.length > 100) return kAdmin;
+        } else {
+            let kNormal = localStorage.getItem('token') || "";
+            kNormal = kNormal.replace(/^"|"$/g, '').trim();
+            if (kNormal.startsWith('eyJ') && kNormal.length > 100) return kNormal;
+        }
+        
+        // 2. Si falla lo anterior, hacemos barrido completo a toda la memoria
+        const storages = [window.localStorage, window.sessionStorage];
+        for (let s of storages) {
+            try {
+                for (let i = 0; i < s.length; i++) {
+                    let val = s.getItem(s.key(i)) || "";
+                    val = val.replace(/^"|"$/g, '').trim();
+                    if (val.startsWith('eyJ') && val.length > 100) {
+                        return val;
+                    }
+                }
+            } catch(e) {}
+        }
+        return "";
+    };
+
     // ==========================================
-    // 🚀 NUESTRO MOTOR DE EXTRACCIÓN (3 PUERTAS)
+    // 🚀 NUESTRO MOTOR DE EXTRACCIÓN (UNIVERSAL)
     // ==========================================
     async function iniciarExtraccionAPI() {
         const inputToken = document.getElementById('input-token-api');
         
-        // 🔥 LEER EL TOKEN VIVO DIRECTO DEL LOCAL STORAGE 🔥
-        let tokenVivo = localStorage.getItem('token');
-        if (tokenVivo) {
-            tokenVivo = tokenVivo.replace(/^"|"$/g, '').trim();
-            if (inputToken) inputToken.value = tokenVivo; // Actualiza el panel visualmente
+        // Ejecutamos el Cazador de Tokens
+        let tokenVivo = cazarToken();
+
+        if (tokenVivo && inputToken) {
+            inputToken.value = tokenVivo;
         }
 
         if (!inputToken || !inputToken.value.trim()) {
@@ -114,9 +145,10 @@
         const btnExtraer = document.getElementById('btn-extraer-todo');
         if (btnExtraer) { btnExtraer.disabled = true; btnExtraer.innerText = '⏳ Extrayendo...'; }
 
+        // Headers ajustados para aceptar el formato de ambas páginas
         const headers = {
-            "accept": "application/json;charset=UTF-8",
-            "accept-language": "es-419,es;q=0.6",
+            "accept": "*/*",
+            "accept-language": "zh-CN,es-419,es;q=0.9",
             "authorization": token,
             "content-type": "application/json;charset=UTF-8",
             "sec-gpc": "1"
@@ -124,19 +156,38 @@
 
         let todosLosClientes = [];
         let baseDeDatosFinal = [];
-        const tiposDeCaso = [1, 2];
+        
+        // 🔥 DETECTAMOS EL ENTORNO EXACTO BASADO EN LA URL 🔥
+        let esAdmin = window.location.href.includes('/asystem/');
 
         try {
-            for (let tipo of tiposDeCaso) {
-                mostrarAviso(`Buscando bandeja ${tipo}...`, '#3b82f6', 'info');
-                let hostActual = window.location.hostname;
-                let urlPuerta1 = `http://${hostActual}:8093/api/case/colCaseList?pageNum=1&pageSize=5000&collection=1&caseType=${tipo}&orderStatus=2`;
-                let res = await fetch(urlPuerta1, { method: "GET", headers: headers });
+            let hostActual = window.location.hostname;
+
+            // ----------------------------------------------------
+            // 🚪 PUERTA 1: OBTENER LA LISTA DE CLIENTES
+            // ----------------------------------------------------
+            if (esAdmin) {
+                mostrarAviso(`Buscando bandeja Admin...`, '#3b82f6', 'info');
+                // URL para Admin (sin collection ni caseType)
+                let urlListAdmin = `http://${hostActual}:8093/api/case/colCaseList?pageNum=1&pageSize=5000&orderStatus=2`;
+                let res = await fetch(urlListAdmin, { method: "GET", headers: headers });
                 let data = await res.json();
                 if (data.data && data.data.items) {
                     todosLosClientes.push(...data.data.items);
                 }
-                await sleep(500); 
+            } else {
+                const tiposDeCaso = [1, 2];
+                for (let tipo of tiposDeCaso) {
+                    mostrarAviso(`Buscando bandeja ${tipo}...`, '#3b82f6', 'info');
+                    // URL Normal (con collection y caseType)
+                    let urlListNormal = `http://${hostActual}:8093/api/case/colCaseList?pageNum=1&pageSize=5000&collection=1&caseType=${tipo}&orderStatus=2`;
+                    let res = await fetch(urlListNormal, { method: "GET", headers: headers });
+                    let data = await res.json();
+                    if (data.data && data.data.items) {
+                        todosLosClientes.push(...data.data.items);
+                    }
+                    await sleep(500); 
+                }
             }
 
             if (todosLosClientes.length === 0) {
@@ -145,6 +196,9 @@
                 return;
             }
 
+            // ----------------------------------------------------
+            // 🚪 PUERTAS 2 Y 3: EXTRACCIÓN DE DETALLES Y PRÓRROGAS
+            // ----------------------------------------------------
             const TAMANO_PAQUETE = 15;
             for (let i = 0; i < todosLosClientes.length; i += TAMANO_PAQUETE) {
                 const paquete = todosLosClientes.slice(i, i + TAMANO_PAQUETE);
@@ -153,17 +207,24 @@
 
                 const promesasPaquete = paquete.map(async (cliente) => {
                     let hostActual = window.location.hostname;
-                    let urlPuerta2 = `http://${hostActual}:8093/api/case/details?userId=${cliente.userId}&acqChannel=${cliente.acqChannel}&caseNo=${cliente.caseNo}`;
-                    let urlPuerta3 = `http://${hostActual}:8093/api/case/applyExtension/${cliente.caseNo}`;
+                    
+                    // Constructor dinámico de peticiones
+                    let urlPuerta2 = esAdmin 
+                        ? `http://${hostActual}:8093/api/case/details?userId=${cliente.userId}&acqChannel=${cliente.acqChannel}`
+                        : `http://${hostActual}:8093/api/case/details?userId=${cliente.userId}&acqChannel=${cliente.acqChannel}&caseNo=${cliente.caseNo}`;
+                    
+                    let urlPuerta3 = cliente.caseNo 
+                        ? `http://${hostActual}:8093/api/case/applyExtension/${cliente.caseNo}`
+                        : null;
 
                     try {
-                        let [resDetalle, resProrroga] = await Promise.all([
-                            fetch(urlPuerta2, { method: "GET", headers: headers }),
-                            fetch(urlPuerta3, { method: "GET", headers: headers })
-                        ]);
+                        let fetchDetalle = fetch(urlPuerta2, { method: "GET", headers: headers });
+                        let fetchProrroga = urlPuerta3 ? fetch(urlPuerta3, { method: "GET", headers: headers }) : Promise.resolve(null);
+
+                        let [resDetalle, resProrroga] = await Promise.all([fetchDetalle, fetchProrroga]);
 
                         let dataDetalle = await resDetalle.json();
-                        let dataProrroga = await resProrroga.json();
+                        let dataProrroga = resProrroga ? await resProrroga.json() : { data: {} };
 
                         if (dataDetalle.data) {
                             let p2 = dataDetalle.data;
@@ -196,7 +257,7 @@
                             };
                         }
                     } catch (e) {
-                        console.error(`Error con el cliente ${cliente.userName}`);
+                        console.error(`Error con el cliente ${cliente.userName || cliente.userId}`, e);
                     }
                     return null;
                 });
@@ -248,10 +309,8 @@
                 backgroundColor: 'rgba(30, 41, 59, 0.95)', borderRadius: '12px 12px 0 0'
             });
 
-            let tokenDetectado = localStorage.getItem('token') || "";
-            if (tokenDetectado) {
-                tokenDetectado = tokenDetectado.replace(/^"|"$/g, '').trim();
-            }
+            // Usamos el cazador al abrir el panel también
+            let tokenDetectado = cazarToken();
             
             let clicsTitulo = 0;
 
@@ -263,7 +322,15 @@
                                style="width: 100%; background: #1e293b; color: #34d399; border: 1px solid #334155; border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; font-family: monospace; cursor: default; user-select: none;">
                         <div id="escudo-token" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; cursor:default;"></div>
                     </div>
-                    <span style="font-size:11px; color:#94a3b8; background:#0f172a; padding:2px 6px; border-radius:4px;">Ctrl+Shift+Z</span>
+                    <div style="display:flex; gap:10px; align-items:center; background:rgba(15, 23, 42, 0.6); padding:4px 8px; border-radius:6px; border:1px solid #334155;">
+                        <label style="font-size:10px; color:#cbd5e1; display:flex; align-items:center; gap:4px; cursor:pointer; user-select:none;" title="Muestra/Oculta de ID Pedido a Selfie">
+                            <input type="checkbox" id="switch-ect" style="cursor:pointer; accent-color:#34d399;"> ECT
+                        </label>
+                        <label style="font-size:10px; color:#cbd5e1; display:flex; align-items:center; gap:4px; cursor:pointer; user-select:none;" title="Muestra/Oculta Cargos y Días de Mora">
+                            <input type="checkbox" id="switch-mora" checked style="cursor:pointer; accent-color:#34d399;"> CON MORA
+                        </label>
+                        <span style="font-size:11px; color:#94a3b8; margin-left:2px; border-left:1px solid #475569; padding-left:8px;">Ctrl+Shift+Z</span>
+                    </div>
                 </div>
                 <button type="button" id="btn-cerrar-panel" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:18px;">✖</button>
             `;
@@ -304,6 +371,12 @@
                     inputToken.addEventListener('input', (e) => {
                         localStorage.setItem('token', e.target.value.trim());
                     });
+
+                    // 🔥 EVENTOS PARA QUE LA TABLA REACCIONE A LOS SWITCHES AL INSTANTE 🔥
+                    const swEctEl = document.getElementById('switch-ect');
+                    const swMoraEl = document.getElementById('switch-mora');
+                    if (swEctEl) swEctEl.addEventListener('change', actualizarTablaLotes);
+                    if (swMoraEl) swMoraEl.addEventListener('change', actualizarTablaLotes);
                 }
             }, 100);
 
@@ -538,12 +611,19 @@
                 const estiloDatoCentro = "border: 1px solid #ccc; text-align: center; padding: 5px; vertical-align: middle;";
                 const estiloDatoIzquierda = "border: 1px solid #ccc; text-align: left; padding: 5px; vertical-align: middle;";
 
-                // --- NUEVO ORDEN DE ENCABEZADOS (16 Principales + 9 Extras) ---
-                const encabezadosVisibles = [
-                    "ID Pedido", "ID Factura", "DNI", "SELF", "NUMERO", 
-                    "NOMBRE", "APP", "CORREO", "PRODUCTO", "DEUDA TOTAL", "EXTENSION", 
-                    "CARGO POR MORA", "DIAS DE MORA", `Teléfono (Con ${PREFIJO_ACTUAL})`, `Ref 1 (Con ${PREFIJO_ACTUAL})`, `Ref 2 (Con ${PREFIJO_ACTUAL})`
-                ];
+                // 🔥 ESTADO DE LOS SWITCHES 🔥
+                const swEct = document.getElementById('switch-ect') ? document.getElementById('switch-ect').checked : false;
+                const swMora = document.getElementById('switch-mora') ? document.getElementById('switch-mora').checked : true;
+
+                // --- NUEVO ORDEN DE ENCABEZADOS DINÁMICO ---
+                let encabezadosVisibles = [];
+                if (swEct) encabezadosVisibles.push("ID Pedido", "ID Factura", "DNI", "SELF");
+                
+                encabezadosVisibles.push("NUMERO", "NOMBRE", "APP", "CORREO", "PRODUCTO", "DEUDA TOTAL", "EXTENSION");
+                
+                if (swMora) encabezadosVisibles.push("CARGO POR MORA", "DIAS DE MORA");
+                
+                encabezadosVisibles.push(`Teléfono (Con ${PREFIJO_ACTUAL})`, `Ref 1 (Con ${PREFIJO_ACTUAL})`, `Ref 2 (Con ${PREFIJO_ACTUAL})`);
 
                 const encabezadosExtra = ["WA", "TLG", "LLA", "REF.1", "REF.2", "SMS", "CP", "WA", "GO CHAT", "ESTADO ENVÍO" ];
 
@@ -583,30 +663,43 @@
                         return limpio.startsWith(PREFIJO_ACTUAL) ? limpio : PREFIJO_ACTUAL + limpio;
                     };
 
-                    // Aplicamos el nuevo orden exacto de datos solicitado
-                    const valoresFila = [
-                        c.ID_Pedido || '-', 
-                        c.ID_Factura || '-', 
-                        imgDniTexto, 
-                        imgSelfTexto, 
-                        formatSinPrefijo(c.Telefono_Titular), // Teléfono SIN prefijo
-                        c.Nombre_Completo || '-', 
-                        c.Aplicacion || '-',
-                        c.Correo || '-', 
-                        c.Producto || '-', 
-                        c.Deuda_Total || '-', 
-                        c.Monto_Prorroga || '-',
-                        c.Interes_Mora || '-', 
-                        c.Dias_Mora || '-',
-                        formatConPrefijo(c.Telefono_Titular), // Teléfono CON prefijo
-                        formatConPrefijo(c.Ref1_Telefono),    // Ref 1 CON prefijo
-                        formatConPrefijo(c.Ref2_Telefono)     // Ref 2 CON prefijo
-                    ];
+                    // Aplicamos las columnas dinámicas
+                    let celdasFila = [];
+                    
+                    if (swEct) {
+                        celdasFila.push(
+                            { val: c.ID_Pedido || '-', est: estiloDatoCentro },
+                            { val: c.ID_Factura || '-', est: estiloDatoCentro },
+                            { val: imgDniTexto, est: estiloDatoCentro },
+                            { val: imgSelfTexto, est: estiloDatoCentro }
+                        );
+                    }
+                    
+                    celdasFila.push(
+                        { val: formatSinPrefijo(c.Telefono_Titular), est: estiloDatoCentro },
+                        { val: c.Nombre_Completo || '-', est: estiloDatoIzquierda },
+                        { val: c.Aplicacion || '-', est: estiloDatoIzquierda },
+                        { val: c.Correo || '-', est: estiloDatoIzquierda },
+                        { val: c.Producto || '-', est: estiloDatoIzquierda },
+                        { val: c.Deuda_Total || '-', est: estiloDatoCentro },
+                        { val: c.Monto_Prorroga || '-', est: estiloDatoCentro }
+                    );
 
-                    valoresFila.forEach((val, index) => {
-                        // Alineamos a la izquierda los textos (Nombre, App, Correo, Producto), el resto centrado
-                        let estiloActual = (index >= 5 && index <= 8) ? estiloDatoIzquierda : estiloDatoCentro;
-                        htmlTabla += `<td style="${estiloActual}">${val}</td>`;
+                    if (swMora) {
+                        celdasFila.push(
+                            { val: c.Interes_Mora || '-', est: estiloDatoCentro },
+                            { val: c.Dias_Mora || '-', est: estiloDatoCentro }
+                        );
+                    }
+
+                    celdasFila.push(
+                        { val: formatConPrefijo(c.Telefono_Titular), est: estiloDatoCentro },
+                        { val: formatConPrefijo(c.Ref1_Telefono), est: estiloDatoCentro },
+                        { val: formatConPrefijo(c.Ref2_Telefono), est: estiloDatoCentro }
+                    );
+
+                    celdasFila.forEach(celda => {
+                        htmlTabla += `<td style="${celda.est}">${celda.val}</td>`;
                     });
 
                     // Rellenamos las 9 columnas Extra Vacías (Redes sociales, SMS, etc)
@@ -684,14 +777,20 @@
             return;
         }
 
+        // 🔥 LEER ESTADO DE SWITCHES PARA RENDERIZAR LA VISTA 🔥
+        const swEct = document.getElementById('switch-ect') ? document.getElementById('switch-ect').checked : false; // Por defecto apagado
+        const swMora = document.getElementById('switch-mora') ? document.getElementById('switch-mora').checked : true; // Por defecto encendido
+
         let html = `
             <table style="width: max-content; min-width: 100%; text-align:left; border-collapse: collapse; white-space: nowrap;">
                 <thead style="position: sticky; top: 0; background-color: rgba(30, 41, 59, 1); z-index: 10;">
                     <tr style="border-bottom: 2px solid #475569; color: #94a3b8;">
+                        ${swEct ? `
                         <th style="padding:10px;">ID Pedido</th>
                         <th style="padding:10px;">ID Factura</th>
                         <th style="padding:10px; color:#c084fc;">DNI</th>
                         <th style="padding:10px; color:#c084fc;">SELFIE</th>
+                        ` : ''}
                         <th style="padding:10px;">App</th>
                         <th style="padding:10px;">Producto</th>
                         <th style="padding:10px;">Correo</th>
@@ -701,8 +800,10 @@
                         <th style="padding:10px;">Ref 2</th>
                         <th style="padding:10px; color:#f87171;">Deuda</th>
                         <th style="padding:10px; color:#fbbf24;">Prórroga</th>
+                        ${swMora ? `
                         <th style="padding:10px;">Int. Mora</th>
                         <th style="padding:10px;">Días Mora</th>
+                        ` : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -715,6 +816,7 @@
             
             html += `
                 <tr class="fila-rafaga" style="border-bottom: 1px solid #334155;">
+                    ${swEct ? `
                     <td style="padding:8px 10px; color:#60a5fa;">${c.ID_Pedido}</td>
                     <td style="padding:8px 10px;">${c.ID_Factura}</td>
                     <td style="padding:8px 10px; color:#c084fc;">
@@ -723,6 +825,7 @@
                     <td style="padding:8px 10px; color:#c084fc;">
                         <span class="${txtSelf === 'Ver' ? 'celda-hover-info rafaga-hover-img' : ''}" data-url="${c.Foto_Selfie}">${txtSelf}</span>
                     </td>
+                    ` : ''}
                     <td style="padding:8px 10px;">${c.Aplicacion}</td>
                     <td style="padding:8px 10px;">${c.Producto}</td>
                     <td style="padding:8px 10px;"><span class="correo-celda ${claseCorreo}">${c.Correo}</span></td>
@@ -732,8 +835,10 @@
                     <td style="padding:8px 10px;">${c.Ref2_Telefono}</td>
                     <td style="padding:8px 10px; color:#f87171; font-weight:bold;">${c.Deuda_Total}</td>
                     <td style="padding:8px 10px; color:#fbbf24;">${c.Monto_Prorroga}</td>
+                    ${swMora ? `
                     <td style="padding:8px 10px;">${c.Interes_Mora}</td>
                     <td style="padding:8px 10px;">${c.Dias_Mora}</td>
+                    ` : ''}
                 </tr>
             `;
         });
