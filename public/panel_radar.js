@@ -6,7 +6,7 @@
     // ==========================================
     
     // --- CONFIGURACIÓN RADAR ---
-    const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbx2MmJpsF1jgwyhmH4AuYpOoRQKv4U6AEo9HQiDv7LxXx8TR3qNHFLczu1TyCMvCAsl/exec';
+    const CEREBRO_URL = 'https://script.google.com/macros/s/AKfycbwRBmQk-FtHmzJAT4_VXNRO8Zh7g11jGjoYBYTCXf-S9zKIy8N3pn4cyJ5l5m6uBA/exec';
     const API_URL = CEREBRO_URL;
     const SECURITY_TOKEN = 'SST_V12_CORP_SECURE_2026_X9';
 
@@ -751,7 +751,14 @@
         iniciarSeguimientoEspecifico: async function(destinoId, inputId, nombreDestino) {
             let seleccionadosIdx = Array.from(document.querySelectorAll('.term-check-row:checked')).map(cb => cb.getAttribute('data-idx'));
             let mensajeFinal = document.getElementById(inputId).value.trim() || "NC LLA";
-            let fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' }); 
+            
+            // 1. FECHA ESTANDARIZADA: Usamos America/Lima (GMT-5) como punto neutro para PE/CH
+            let formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
+            let fechaHoy = formatter.format(new Date()); 
+            
+            // 2. EXTRAER OPERADOR ACTUAL: Para evitar cruces con PRAS1001 vs PRBS0001
+            const currentUser = (extraerUsuarioNativo() || getLoggedUser() || "").toUpperCase();
+            
             const headers = this.getHeaders();
             let totalEnviados = 0, totalSaltados = 0;
 
@@ -765,15 +772,41 @@
 
             for (let idx of seleccionadosIdx) {
                 let c = this.clientesFiltrados[idx];
-                let histText = "";
+                let esDuplicado = false;
 
                 try {
                     let resH = await fetch(`http://${this.host}:8093/api/case/colRecord/${c.caseNo}/list`, { method: "GET", headers: headers });
-                    histText = await resH.text();
+                    let dataH = await resH.json();
+                    
+                    // Buscar en la estructura del JSON igual que en mostrarHistorial
+                    let registros = dataH.data || dataH;
+                    if (!Array.isArray(registros) && dataH.items) registros = dataH.items;
+                    if (!Array.isArray(registros) && dataH.data && dataH.data.items) registros = dataH.data.items;
+
+                    if (Array.isArray(registros)) {
+                        for (let r of registros) {
+                            let rRemark = (r.colRemark || r.remark || "").trim();
+                            let rDest = String(r.contactPerson);
+                            let rOp = (r.createBy || r.updateBy || "").toUpperCase();
+                            
+                            let rFecha = "";
+                            let fechaRaw = r.createTime || r.updateTime;
+                            if (fechaRaw) {
+                                let d = new Date(fechaRaw);
+                                if (!isNaN(d.getTime())) rFecha = formatter.format(d);
+                            }
+
+                            // 3. VALIDACIÓN ESTRICTA: Mismo Mensaje + Mismo Destino + Mismo Op + Misma Fecha
+                            if (rRemark === mensajeFinal && rDest === String(destinoId) && rOp === currentUser && rFecha === fechaHoy) {
+                                esDuplicado = true;
+                                break; 
+                            }
+                        }
+                    }
                 } catch(e) {}
 
-                if (histText.includes(mensajeFinal) && histText.includes(fechaHoy) && (histText.includes(`"contactPerson":"${destinoId}"`) || histText.includes(`"contactPerson":${destinoId}`))) {
-                    this.log(`⏭️ [${c.userName} - ${nombreDestino}] Saltado (Ya existe hoy)`, 'warning');
+                if (esDuplicado) {
+                    this.log(`⏭️ [${c.userName} - ${nombreDestino}] Saltado (Tú ya gestionaste esto hoy)`, 'warning');
                     totalSaltados++;
                     continue;
                 }
