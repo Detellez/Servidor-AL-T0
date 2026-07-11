@@ -2,7 +2,7 @@
     'use strict';
 
     // 👇 PON AQUÍ TU NUEVO ID O ENLACE DEL SERVIDOR 👇
-    const NUEVO_ID_SERVIDOR = "server-belcy";
+    const NUEVO_ID_SERVIDOR = "Contacte Con su TL";
     // 👆 ========================================== 👆
 
     function inyectarBloqueo() {
